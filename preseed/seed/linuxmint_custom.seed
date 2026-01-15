@@ -1,0 +1,63 @@
+# Helpfull debian example preseed: https://www.debian.org/releases/bookworm/example-preseed.txt
+# See also:
+#  https://wiki.ubuntu.com/UbiquityAutomation
+#  https://www.debian.org/releases/stable/amd64/apb.en.html
+#  https://github.com/Pauchu/linux-mint-20-preseeding/blob/main/preseedSATA.cfg
+#
+### POST INSTALL ##############################################################
+
+# NOTE: Ubiquity uses a subset of the commands from debian installer and silently ignores
+#       the ones it doesn't recognise (like: preseed/late_command, pkgsel)
+ubiquity ubiquity/success_command string \
+    cp -r /cdrom/preseed/skel/* /target/etc/skel; \
+    in-target find /etc/skel -type d -exec chmod 755 {} \; ; \
+    in-target find /etc/skel -type f -exec chmod 644 {} \; ; \
+    cp -r /cdrom/preseed/pkgs /target/etc; \
+    cp /cdrom/preseed/scripts/post_install.sh /target/etc/pkgs/; \
+    cp /cdrom/preseed/etc/apt/sources.list.d/official-package-repositories.list /target/etc/apt/sources.list.d/official-package-repositories.list; \
+    chmod +x /target/etc/pkgs/post_install.sh; \
+    in-target /etc/pkgs/post_install.sh; \
+    in-target rm /etc/pkgs/post_install.sh
+
+
+### INSTALLER #################################################################
+# use non-free codecs
+ubiquity ubiquity/use_nonfree true
+
+# Don't ask questions
+d-i debconf/priority select critical
+
+# Shutdown when done
+ubiquity ubiquity/poweroff boolean true
+
+
+### Temporary user ############################################################
+
+# Set temporary oem account, will be removed later.
+d-i oem-config/enable boolean true
+d-i passwd/user-fullname string OEM
+d-i passwd/username string oem
+d-i passwd/user-password password oem
+d-i passwd/user-password-again password oem
+d-i user-setup/allow-password-weak boolean true
+
+
+### LOCALIZATION ##############################################################
+#d-i debian-installer/locale string en_US.UTF-8
+d-i debian-installer/locale string nl_NL.UTF-8
+
+# Keyboard selection.
+d-i keyboard-configuration/layoutcode string us
+d-i keyboard-configuration/xkb-keymap select us
+
+# Clock and time zone setup
+d-i time/zone string Europe/Amsterdam
+
+### PARTITIONING ##############################################################
+# regular partition layout
+ubiquity partman-auto/method string regular
+# default is first disk
+d-i partman-auto/init_automatically_partition select biggest_free
+ubiquity partman/choose_partition select finish
+ubiquity partman/confirm boolean true
+ubiquity partman/confirm_nooverwrite boolean true
