@@ -54,12 +54,12 @@ command -v xorriso > /dev/null || sudo apt-get -y install xorriso isolinux
 command -v bsdtar  > /dev/null || sudo apt-get -y install libarchive-tools
 command -v mksquashfs  > /dev/null || sudo apt-get -y install squashfs-tools
 
-if [[ ! -r $ISO_IN ]] then
+if [[ ! -r $ISO_IN ]]; then
   echo -e "ERROR: cannot read $ISO_IN from -i argument"
   exit 1
 fi
 
-if [[ -z $ISO_OUT ]] then
+if [[ -z $ISO_OUT ]]; then
   # remove the extension
   ISO_OUT=${ISO_IN%.*}
   # remove the date if the standard format yyyy-mm-dd is used
@@ -74,19 +74,27 @@ fi
 ISO_IN_NAME=$(basename ${ISO_IN%.*})
 # iso name must be <= 32 characters
 ISO_IN_NAME=${ISO_IN_NAME:0:32}
+
+# Create a folder to extract the ISO.
 TMPFS_SIZE=$(df --output=avail /dev/shm|tail -1)
-ISO_DIR=/tmp/iso
-# If more than 6G ava
+TMP_SIZE=$(df --output=avail /tmp|tail -1)
 ISO_SIZE=$(stat -L --format=%s $ISO_IN)
-if [ ! -z $UNSQUASH ]
-then
+# The size needed depends on whether the squashfs needs to be unsquashed
+if [ ! -z $UNSQUASH ]; then
     ISO_SIZE=$(($ISO_SIZE/2**10*40/10))
 else
     ISO_SIZE=$(($ISO_SIZE/2**10*11/10))
 fi
-if [ $TMPFS_SIZE -gt $ISO_SIZE ];
-then
+
+# Does it fit in /dev/shm?
+if [ $TMPFS_SIZE -gt $ISO_SIZE ]; then
   ISO_DIR=/dev/shm/iso
+# does it fit in /tmp
+elif [ $TMP_SIZE -gt $ISO_SIZE ]; then
+  ISO_DIR=/tmp/iso
+else
+# It does not fit /dev/shm or /tmp, so put it in the current location
+  ISO_DIR=./tmp_iso
 fi
 
 ISO_FILES=$ISO_DIR/$ISO_IN_NAME
