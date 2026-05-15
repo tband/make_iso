@@ -108,7 +108,7 @@ mkdir -p $ISO_FILES
 bsdtar -C $ISO_FILES --acls -xf $ISO_IN
 find $ISO_FILES -type f -exec chmod +w \{} \;
 find $ISO_FILES -type d -exec chmod +w \{} \;
-cp -pr preseed/ $ISO_FILES/
+rsync -a --delete preseed $ISO_FILES/
 
 # Check if the Repar Cafe menu item has already been added and if not add them to isolinux and grub
 if ! grep -q "Repair Cafe" $ISO_FILES/boot/grub/grub.cfg
