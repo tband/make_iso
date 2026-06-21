@@ -65,8 +65,8 @@ if [[ -z $ISO_OUT ]]; then
   # remove the date if the standard format yyyy-mm-dd is used
   ISO_OUT=${ISO_OUT%-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]}
   ISO_OUT=${ISO_OUT}-$(date +%F).iso
-  echo -e "Output ISO=$ISO_OUT"
   ISO_OUT=$(basename $ISO_OUT)
+  echo -e "Output ISO=$PWD/$ISO_OUT"
 fi
 
 [ -r $ISO_OUT ] && echo "ERROR: target $ISO_OUT already exists" && exit 1
@@ -196,6 +196,11 @@ then
     echo "Please make modifications as needed and continue with 'exit'"
     sudo chroot $ISO_DIR/squashfs
   fi
+
+  # copy the latest kernel and init ramdisk to boot the live image
+  #
+  sudo cp -L $ISO_DIR/squashfs/boot/initrd.img $ISO_FILES/casper/initrd.lz
+  sudo cp -L $ISO_DIR/squashfs/boot/vmlinuz $ISO_FILES/casper/vmlinuz
   sudo mv $ISO_DIR/squashfs/etc/resolv.conf.org $ISO_DIR/squashfs/etc/resolv.conf
   sudo umount $ISO_DIR/squashfs/dev/ $ISO_DIR/squashfs/proc/
 
@@ -207,7 +212,6 @@ fi
 
 if [ ! -z $DEBUG ]; then
   set|grep ISO_ ;
-  exit
 fi
 
 # I can't get UEFI boot with dd to work
