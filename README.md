@@ -130,7 +130,7 @@ Don't worry about these details, but here's what the script does:
 ## 📚 What Each Option Really Means
 
 ### `--update`
-This runs `apt-get update && apt-get upgrade` inside the ISO, so:
+This runs `apt-get update && apt-get dist-upgrade` inside the ISO, so:
 - Security patches are included
 - Bug fixes are applied
 - Software is current
