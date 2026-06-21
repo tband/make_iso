@@ -7,5 +7,5 @@ PATH=$PATH:/usr/sbin
 #ufw default deny incoming
 apt-get update
 apt-get --yes install wdutch cheese mint-meta-codecs
-apt-get --yes upgrade
+apt-get --yes dist-upgrade
 apt-get clean
