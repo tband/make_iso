@@ -56,8 +56,13 @@ d-i time/zone string Europe/Amsterdam
 ### PARTITIONING ##############################################################
 # regular partition layout
 ubiquity partman-auto/method string regular
-# default is first disk
 d-i partman-auto/init_automatically_partition select biggest_free
+
+# Explicitly target internal bus types (nvme, sata, ata) and ignore USB/loops
+ubiquity partman/early_command string \
+    target_disk=$(lsblk -d -n -o NAME,TRAN | grep -E 'nvme|sata|ata' | head -n1 | awk '{print $1}'); \
+    [ -n "$target_disk" ] && debconf-set partman-auto/disk "/dev/$target_disk"
+
 ubiquity partman/choose_partition select finish
 ubiquity partman/confirm boolean true
 ubiquity partman/confirm_nooverwrite boolean true
