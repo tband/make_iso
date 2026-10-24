@@ -21,6 +21,12 @@ Examples:
   ./${prog_name} -i linuxmint.iso -o linuxmint_updated.iso --update
 "
 
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+# Catch any error, print the line number and the command that failed, then exit
+trap 'echo -e "\nERROR: Command failed at line $LINENO with exit code $?. Command: $BASH_COMMAND" >&2' ERR
+
 # Parse long options
 OPTIONS=$(getopt -o i:o:cuwsdvhH --long chroot,update,winboat,signal,debug -- "$@")
 
@@ -49,8 +55,9 @@ while true; do
   esac
 done
 
+
 # All commands available?
-command -v xorriso > /dev/null || sudo apt-get -y install xorriso isolinux
+command -v xorriso > /dev/null || sudo apt-get -y install xorriso isolinux syslinux-common
 command -v bsdtar  > /dev/null || sudo apt-get -y install libarchive-tools
 command -v mksquashfs  > /dev/null || sudo apt-get -y install squashfs-tools
 
@@ -165,15 +172,18 @@ fi
 if [ ! -z $UNSQUASH ]
 then
   # and extra unmount just to be sure :-)
-  sudo umount $ISO_DIR/squashfs/dev/ $ISO_DIR/squashfs/proc/ 2>/dev/null
+  sudo umount -lf $ISO_DIR/squashfs/dev/ $ISO_DIR/squashfs/proc/ $ISO_DIR/squashfs/sys/ 2>/dev/null ||  true
   sudo rm -rf $ISO_DIR/squashfs/
   sudo unsquashfs -d $ISO_DIR/squashfs $ISO_FILES/casper/filesystem.squashfs
   sudo mount -o bind /dev/ $ISO_DIR/squashfs/dev/
   sudo mount -o bind /proc/ $ISO_DIR/squashfs/proc/
+  sudo mount -o bind /sys/ $ISO_DIR/squashfs/sys/
   sudo mv $ISO_DIR/squashfs/etc/resolv.conf $ISO_DIR/squashfs/etc/resolv.conf.org
   sudo cp -L /etc/resolv.conf $ISO_DIR/squashfs/etc/
   sudo cp preseed/etc/apt/sources.list.d/official-package-repositories.list \
           $ISO_DIR/squashfs/etc/apt/sources.list.d/official-package-repositories.list
+  sudo cp preseed/etc/default/grub.d/99-custom-timeout.cfg \
+          $ISO_DIR/squashfs/etc/default/grub.d
   if [ ! -z $UPDATE ]
   then
     sudo cp preseed/scripts/update.sh $ISO_DIR/squashfs/tmp
@@ -202,7 +212,9 @@ then
   sudo cp -L $ISO_DIR/squashfs/boot/initrd.img $ISO_FILES/casper/initrd.lz
   sudo cp -L $ISO_DIR/squashfs/boot/vmlinuz $ISO_FILES/casper/vmlinuz
   sudo mv $ISO_DIR/squashfs/etc/resolv.conf.org $ISO_DIR/squashfs/etc/resolv.conf
-  sudo umount $ISO_DIR/squashfs/dev/ $ISO_DIR/squashfs/proc/
+
+  sync
+  sudo umount -lf  $ISO_DIR/squashfs/dev/ $ISO_DIR/squashfs/proc/ $ISO_DIR/squashfs/sys/ || true
 
   sudo rm $ISO_FILES/casper/filesystem.squashfs
   # this takes 90s seconds on a 8 core i7-4790K 4GHz CPU
@@ -214,22 +226,18 @@ if [ ! -z $DEBUG ]; then
   set|grep ISO_ ;
 fi
 
-# I can't get UEFI boot with dd to work
-if false;then
-  mkisofs -U -r -v -T -J -joliet-long -V "$ISO_IN_NAME" -volset "$ISO_IN_NAME" -A "$ISO_IN_NAME" -p "linux-employ"\
-  -input-charset iso8859-1 \
-  -eltorito-boot isolinux/isolinux.bin -eltorito-catalog isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table \
-  -eltorito-alt-boot -eltorito-platform 0xEF -eltorito-boot boot/grub/efi.img -no-emul-boot \
-  -o $ISO_OUT -quiet $ISO_FILES
-  isohybrid --uefi $ISO_OUT
-fi
-
-if true;then
-  [ -r /usr/lib/ISOLINUX/isohdpfx.bin ] && ISOHDPFX=/usr/lib/ISOLINUX/isohdpfx.bin
-  [ -r /usr/lib/syslinux/bios/isohdpfx.bin ] && ISOHDPFX=/usr/lib/syslinux/bios/isohdpfx.bin
-  [ -z $ISOHDPFX ] && echo "ERROR: Cannot find isohdpfx.bin" && exit 1
-  xorriso -as mkisofs -isohybrid-mbr $ISOHDPFX -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat -o $ISO_OUT -quiet $ISO_FILES
-fi
+[ -r /usr/lib/ISOLINUX/isohdpfx.bin ] && ISOHDPFX=/usr/lib/ISOLINUX/isohdpfx.bin
+[ -r /usr/lib/syslinux/bios/isohdpfx.bin ] && ISOHDPFX=/usr/lib/syslinux/bios/isohdpfx.bin
+[ -z $ISOHDPFX ] && echo "ERROR: Cannot find isohdpfx.bin" && exit 1
+xorriso -as mkisofs \
+  -isohybrid-mbr $ISOHDPFX \
+  -c isolinux/boot.cat \
+  -b isolinux/isolinux.bin \
+  -no-emul-boot  -boot-load-size 4  -boot-info-table \
+  -eltorito-alt-boot -e boot/grub/efi.img  -no-emul-boot \
+  -isohybrid-gpt-basdat \
+  -iso-level 3 \
+  -o $ISO_OUT  -quiet $ISO_FILES
 
 if [ -z $DEBUG ]
 then
